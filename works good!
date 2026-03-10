@@ -1,0 +1,278 @@
+// This program reads from multiple A/D channels in
+// scan mode.
+
+#include <p24F16KA301.h>
+
+// Select oscillator
+#pragma config FNOSC = FRCDIV
+#pragma config ICS = PGx3
+
+volatile int i = 0; 
+
+void __attribute__ ((interrupt, no_auto_psv)) _OC1Interrupt(void){
+    _OC1IF = 0;
+    i++; 
+}
+
+// This function sets up all the analog pins for analog input
+void config_pins_for_ad(void)
+{
+    // Put all relevant registers into a known state
+    TRISA = 0;
+    TRISB = 0;
+    ANSA = 0;
+    ANSB = 0;
+    
+    // Configure the tri state adapter for input for all the analog pins
+    TRISAbits.TRISA0 = 1; // Configure pin 2 for input
+    TRISAbits.TRISA1 = 1; // Configure pin 3 for input
+    TRISBbits.TRISB0 = 0; // Configure pin 4 for output
+    TRISBbits.TRISB1 = 1; // Configure pin 5 for input   
+    TRISBbits.TRISB8 = 0; // Configure pin  for input
+    TRISBbits.TRISB9 = 0; // Configure pin  for input  
+    TRISBbits.TRISB2 = 1; // Configure pin 6 for input
+    TRISAbits.TRISA2 = 1; // Configure pin 7 for input
+    TRISAbits.TRISA3 = 1; // Configure pin 8 for input
+    TRISBbits.TRISB4 = 1; // Configure pin 9 for input
+    TRISBbits.TRISB12 = 1; // Configure pin 15 for input    
+    TRISBbits.TRISB13 = 1; // Configure pin 16 for input (Left QRD)
+    TRISBbits.TRISB14 = 1; // Configure pin 17 for input (Center QRD)
+    TRISBbits.TRISB15 = 1; // Configure pin 18 for input (Right QRD)
+    
+    // Configure all the analog pins for analog (as opposed to digital)
+    ANSAbits.ANSA0 = 1; // Configure pin 2 for analog
+    ANSAbits.ANSA1 = 1; // Configure pin 3 for analog
+    ANSBbits.ANSB0 = 1; // Configure pin 4 for analog
+    ANSBbits.ANSB1 = 1; // Configure pin 5 for analog    
+    ANSBbits.ANSB2 = 1; // Configure pin 6 for analog
+    ANSAbits.ANSA2 = 1; // Configure pin 7 for analog
+    ANSAbits.ANSA3 = 1; // Configure pin 8 for analog
+    ANSBbits.ANSB4 = 1; // Configure pin 9 for digital
+    ANSBbits.ANSB12 = 1; // Configure pin 15 for analog    
+    ANSBbits.ANSB13 = 1; // Configure pin 16 for analog
+    ANSBbits.ANSB14 = 1; // Configure pin 17 for analog
+    ANSBbits.ANSB15 = 1; // Configure pin 18 for analog
+}
+
+// This function configures the A/D to read from
+// multiple channels in scan mode.
+void config_ad(void)
+{
+    
+    _ADON = 0;    // AD1CON1<15> -- Turn off A/D during config
+    
+    // AD1CON1 register
+    _ADSIDL = 0;  // AD1CON1<13> -- A/D continues in idle mode
+    _MODE12 = 1;  // AD1CON1<10> -- 12-bit A/D operation
+    _FORM = 0;    // AD1CON1<9:8> -- Unsigned integer output
+    _SSRC = 7;    // AD1CON1<7:4> -- Auto conversion (internal counter)
+    _ASAM = 1;    // AD1CON1<2> -- Auto sampling
+
+    // AD1CON2 register
+    _PVCFG = 0;   // AD1CON2<15:14> -- Use VDD as positive
+                  // ref voltage
+    _NVCFG = 0;   // AD1CON2<13> -- Use VSS as negative
+                  // ref voltage
+    _BUFREGEN = 1;// AD1CON2<11> -- Result appears in buffer
+                  // location corresponding to channel
+    _CSCNA = 1;   // AD1CON2<10> -- Scans inputs specified
+                  // in AD1CSSx registers
+    _SMPI = 2;	  // AD1CON2<6:2> -- Every 9th conversion sent (number of channels sampled -1)
+                  // to buffer (if sampling 10 channels)
+    _ALTS = 0;    // AD1CON2<0> -- Sample MUXA only
+
+    _CN2PDE = 1; 
+    
+    // AD1CON3 register
+    _ADRC = 0;    // AD1CON3<15> -- Use system clock
+    _SAMC = 0;    // AD1CON3<12:8> -- Auto sample every A/D
+                  // period TAD
+    _ADCS = 0b00000010;    // AD1CON3<7:0> -- TAD needs to be at least 750 ns. Thus, _ADCS = 0b00000010 will give us the fastest AD clock given a 4 MHz system clock.
+
+    // AD1CSS registers, tells PIC to scan pins 16-18
+    _CSS9 = 1; 
+    _CSS10 = 1; 
+    _CSS11 = 1; 
+    
+    
+    _ADON = 1;    // AD1CON1<15> -- Turn on A/D
+}
+
+int main()
+{
+    //Oscillator Postscalar
+    _RCDIV = 0b011;
+    
+    // Configure PWM
+    OC1CON1 = 0x1C06;
+    OC1CON2 = 0x001F;
+    OC1RS = 0;
+    OC1R = 0;
+    
+    OC2CON1 = 0x1C06;
+    OC2CON2 = 0x001F;
+    OC2RS = 0;
+    OC2R = 0;
+    
+    //Configure Timer 1
+    _TCS = 0; // Internal clock
+    _TCKPS = 0b10; // 1:64 prescale, 0b01 = 1:8 prescale
+    TMR1 = 0;
+    PR1 = 10000;
+    _TON = 1; // Turn on Timer1
+    
+    // Configure A/D
+    config_pins_for_ad();
+    config_ad();
+    
+    static double theVoltage[12];
+    
+    // set up interrupt
+    _OC1IP = 4;
+    _OC1IF = 0;
+    _OC1IE = 1;
+    
+    enum {fwd, right, left, righthard, lefthard} state;
+    state = fwd;
+
+    // Loop
+    while(1){
+        
+      switch(state){
+        case fwd:
+            _LATB9 = 0; //left motor fwd
+            _LATB8 = 0; //right motor fwd
+            OC1RS = 1000; //1rev/sec
+            OC1R = OC1RS*0.5;
+            OC2RS = 1000; //1rev/sec
+            OC2R = OC2RS*0.5;
+            // Left = 11, Center = 10, Right = 9
+            if (ADC1BUF10 <= 2047 && ADC1BUF11 <= 2047 && ADC1BUF9 >= 2047){ // if center and left see white
+                state = left;                         
+            }
+            if (ADC1BUF10 <= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if center and right see white
+                state = right;   
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
+                state = righthard;
+//                i = 0;
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 <= 2047 && ADC1BUF9 >= 2047){ // if  just left sees white
+                state = lefthard; 
+//                i = 0;
+            }
+            break;
+            
+         case left:
+            _LATB9 = 0; //left motor fwd
+            _LATB8 = 0; //right motor fwd
+            OC1RS = 1000; //1rev/sec Right
+            OC1R = OC1RS*0.5;
+            OC2RS = 1025; //1rev/sec Left
+            OC2R = OC2RS*0.5;
+
+          
+            
+            if (ADC1BUF10 <= 2047){
+                state = fwd;
+            }
+            
+           if (ADC1BUF9 <= 2047){ // if right sees white
+                state = right;
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
+                state = righthard;
+//                i = 0;
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 <= 2047 && ADC1BUF9 >= 2047){ // if  just left sees white
+                state = lefthard; 
+//                i = 0;
+            }            
+
+            break;
+            
+         case right:
+            _LATB9 = 0; //left motor fwd
+            _LATB8 = 0; //right motor fwd
+            OC1RS = 1025; //1rev/sec Right
+            OC1R = OC1RS*0.5;
+            OC2RS = 1000; //1rev/sec Left
+            OC2R = OC2RS*0.5;
+
+
+            
+            if (ADC1BUF10 <= 2047){
+                state = fwd;
+            }
+            
+            if (ADC1BUF11 <= 2047){ // if  just left sees white
+                state = left; 
+
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
+                state = righthard;
+//                i = 0;
+            }
+            if (ADC1BUF10 >= 2047 && ADC1BUF11 <= 2047 && ADC1BUF9 >= 2047){ // if  just left sees white
+                state = lefthard; 
+//                i = 0;
+            }            
+            
+            break;
+            
+         case righthard:
+            _LATB9 = 0; //left motor fwd
+            _LATB8 = 0; //right motor fwd
+            OC1RS = 2000*1; //1rev/sec Right
+            OC1R = OC1RS*0.5;
+            OC2RS = 1000*0.5; //1rev/sec Left
+            OC2R = OC2RS*0.5;
+
+
+            
+            if (ADC1BUF10 <= 2047){
+                state = fwd;
+            }
+            
+            if (ADC1BUF11 <= 2047){ // if  just left sees white
+                state = left; 
+
+            }
+//            if (ADC1BUF10 >= 2047 && ADC1BUF11 <= 2047 && ADC1BUF9 >= 2047){ // if  just left sees white
+//                state = lefthard; 
+////                i = 0;
+//            }            
+            
+            break;
+            
+         case lefthard:
+            _LATB9 = 0; //left motor fwd
+            _LATB8 = 0; //right motor fwd
+            OC1RS = 1000*.5; //1rev/sec Right
+            OC1R = OC1RS*0.5;
+            OC2RS = 2000; //1rev/sec Left
+            OC2R = OC2RS*0.5;
+
+            
+            
+            if (ADC1BUF10 <= 2047){
+                state = fwd;
+            }
+            
+            if (ADC1BUF9 <= 2047){ // if right sees white
+                state = right;
+            }
+//            if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
+//                state = righthard;
+////                i = 0;
+//            }        
+
+            break;                  
+    }
+     
+        
+       
+    }
+
+    return 0;
+}
