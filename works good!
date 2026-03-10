@@ -166,14 +166,14 @@ int main()
          case left:
             _LATB9 = 0; //left motor fwd
             _LATB8 = 0; //right motor fwd
-            OC1RS = 1000; //1rev/sec Right
+            OC1RS = 1000; //Right
             OC1R = OC1RS*0.5;
-            OC2RS = 1025; //1rev/sec Left
+            OC2RS = 1025; //Left
             OC2R = OC2RS*0.5;
 
           
             
-            if (ADC1BUF10 <= 2047){
+            if (ADC1BUF10 <= 2047){ // if center sees white
                 state = fwd;
             }
             
@@ -194,18 +194,18 @@ int main()
          case right:
             _LATB9 = 0; //left motor fwd
             _LATB8 = 0; //right motor fwd
-            OC1RS = 1025; //1rev/sec Right
+            OC1RS = 1025; // Right
             OC1R = OC1RS*0.5;
-            OC2RS = 1000; //1rev/sec Left
+            OC2RS = 1000; // Left
             OC2R = OC2RS*0.5;
 
 
             
-            if (ADC1BUF10 <= 2047){
+            if (ADC1BUF10 <= 2047){ // if center sees white
                 state = fwd;
             }
             
-            if (ADC1BUF11 <= 2047){ // if  just left sees white
+            if (ADC1BUF11 <= 2047){ // if just left sees white
                 state = left; 
 
             }
@@ -223,14 +223,14 @@ int main()
          case righthard:
             _LATB9 = 0; //left motor fwd
             _LATB8 = 0; //right motor fwd
-            OC1RS = 2000*1; //1rev/sec Right
+            OC1RS = 2000*1; // Right
             OC1R = OC1RS*0.5;
-            OC2RS = 1000*0.5; //1rev/sec Left
+            OC2RS = 1000*0.5; // Left
             OC2R = OC2RS*0.5;
 
 
             
-            if (ADC1BUF10 <= 2047){
+            if (ADC1BUF10 <= 2047){ // if just left sees white
                 state = fwd;
             }
             
@@ -248,21 +248,22 @@ int main()
          case lefthard:
             _LATB9 = 0; //left motor fwd
             _LATB8 = 0; //right motor fwd
-            OC1RS = 1000*.5; //1rev/sec Right
+            OC1RS = 1000*.5; // Right
             OC1R = OC1RS*0.5;
-            OC2RS = 2000; //1rev/sec Left
+            OC2RS = 2000; // Left
             OC2R = OC2RS*0.5;
 
             
             
-            if (ADC1BUF10 <= 2047){
+            if (ADC1BUF10 <= 2047){ // if just left sees white
                 state = fwd;
             }
             
             if (ADC1BUF9 <= 2047){ // if right sees white
                 state = right;
             }
-//            if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
+            
+//          if (ADC1BUF10 >= 2047 && ADC1BUF11 >= 2047 && ADC1BUF9 <= 2047){ // if  just right sees white
 //                state = righthard;
 ////                i = 0;
 //            }        
